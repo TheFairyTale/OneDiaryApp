@@ -6,12 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:date_format/date_format.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() => runApp(MyApp());
 final themeColor = Colors.blueGrey;
 final brightnessColor = Brightness.dark;
 // This is the type used by the popup menu below.
 enum WhyFarther { harder, smarter, selfStarter, tradingCharter }
+
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   @override
@@ -28,10 +30,11 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: "/",
       routes: {
-        "/": (context) => MyHomePage(title: 'Jan. 16'),
+        "/": (context) => MyHomePage(),
         "category": (context) => Categories(),
         "pathdemo": (context) => PathDemo(),
         "add_art": (context) => AddArticle(),
+        "add_article": (context) => AddArticle(),
       },
       //home: MyHomePage(title: 'Jan. 16'),
     );
@@ -268,24 +271,30 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
 
-      body: Column(
-        children: <Widget>[
-          Center(
-            child: Card(
-              child: InkWell(
-                splashColor: Colors.blue.withAlpha(30),
-                onTap: () {
-                  print('Card tapped.');
-                },
-                child: Container(
-                  width: 300,
-                  height: 100,
-                  child: Text('A card that can be tapped'),
+      body: ListView.builder(
+        itemCount: 1,
+        itemExtent: window.physicalSize.height,
+        itemBuilder: (BuildContext context, int index) {
+          return Column(
+            children: <Widget>[
+              Center(
+                child: Card(
+                  child: InkWell(
+                    splashColor: Colors.blue.withAlpha(30),
+                    onTap: () {
+                      () => Navigator.pushNamed(context, "add_art");
+                    },
+                    child: Container(
+                      width: 300,
+                      height: 100,
+                      child: Text('A card that can be tapped'),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
 
       //添加新文章
@@ -337,19 +346,29 @@ class _PathDemoState extends State<PathDemo> {
     });
   }
 
+/* 
   Future<File> _getLocalFile() async {
     // get the path to the document directory.
     String dir = (await getApplicationDocumentsDirectory()).path;
     // TODO  测试用的文本记录, 正式使用前要删除
+
     return new File('$dir/counter.txt');
   }
-
+ */
   Future<int> _readCounter() async {
     try {
-      File file = await _getLocalFile();
+/*       File file = await _getLocalFile();
       // read the variable as a string from the file.
       String contents = await file.readAsString();
-      return int.parse(contents);
+ */
+      //https://www.devio.org/2019/04/24/flutter-shared_preferences/
+      final prefs = await SharedPreferences.getInstance();
+      // Try reading data from the counter key. If it does not exist, return 0.
+      final counter = prefs.getInt('counter') ?? 0;
+
+      String asc = counter.toString();
+      return int.parse(asc);
+      //return String.parse(counter);
     } on FileSystemException {
       return 0;
     }
@@ -359,8 +378,15 @@ class _PathDemoState extends State<PathDemo> {
     setState(() {
       _counter++;
     });
+
+    //https://www.devio.org/2019/04/24/flutter-shared_preferences/
+    final prefs = await SharedPreferences.getInstance();
+    // set value
+    prefs.setInt('counter', _counter);
+
+/* 
     // write the variable as a string to the file
-    await (await _getLocalFile()).writeAsString('$_counter');
+    await (await _getLocalFile()).writeAsString('$_counter'); */
   }
 
   @override
@@ -380,7 +406,105 @@ class _PathDemoState extends State<PathDemo> {
   }
 }
 
-class AddArticle extends StatelessWidget {
+class Article {
+  var articleYYMTime = "";
+  var articleHourMinuSecTime = "";
+  // 仅用于读取或保存当前文章id， 不担当文章个数储存
+  var articleId = 0;
+  var articleAmount = 0;
+  // 读取出的文章保存在此
+  var article = "";
+
+  /// 传入 文章id，获取文章创建时间（精确到年月日）
+  getArticleYYMTime(String id) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    articleYYMTime = prefs.getString(id + 'createYYMTime');
+  }
+
+  /// 设置文章id+createYYMTime为key, value 为创建时间（精确到年月日）
+  setArticleYYMTime(String id, String YYMTime) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(id + 'createYYMTime', YYMTime);
+  }
+
+  /// 传入 文章id，获取文章创建时间(精确到小时)
+  getArticleHourMinuSecTime(String id) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    articleHourMinuSecTime = prefs.getString(id + 'createHourMinuSecTime');
+  }
+
+  /// 设置文章id+createHourMinuSecTime为key, value 为创建时间(精确到小时)
+  setArticleHourMinuSecTime(String id, String hourMinuSecTime) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(id + 'createHourMinuSecTime', hourMinuSecTime);
+  }
+
+  /// 传入 文章id，获取文章内容
+  getArticle(String id) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    try {
+      article = prefs.getString(id);
+    } on Exception catch (e) {
+      article = "No article found.";
+    }
+  }
+
+  /// 设置文章id为key, value 为文章内容
+  setArticle(String id, String article) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(id, article);
+  }
+
+  /// 删除指定文章 // 暂不可用
+  deleteArticle(String id) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // 将setString() 第二参设为null 则会删除指定key 的值
+    await prefs.setString(id, null);
+  }
+
+  /// 设置已有文章数量: 新增一篇文章 注意应在getArticleAmount() 之后调用
+  addArticleAmount() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int articleCount = prefs.getInt('articleAmount');
+    articleAmount = ++articleCount;
+    prefs.setInt('articleAmount', articleAmount);
+  }
+
+  /// 获取文章已有数量, 如无文章数量则先初始化
+  getArticleAmount() async {
+    int articleCount = null;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    try {
+      articleCount = prefs.getInt('articleAmount');
+    } on Exception catch (e) {
+      // 如果没有设置过文章数量则初始化为 0
+      await prefs.setInt('articleAmount', 0);
+      articleCount = prefs.getInt('articleAmount');
+    }
+    articleAmount = articleCount;
+  }
+}
+
+class AddArticle extends StatefulWidget {
+  AddArticle({Key key}) : super(key: key);
+
+  @override
+  _AddArticleState createState() => _AddArticleState();
+}
+
+class _AddArticleState extends State<AddArticle> {
+  TextEditingController _controller;
+
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     // TODO 将时间存在临时文件中，以防止程序恢复草稿时搞错时间
@@ -388,6 +512,24 @@ class AddArticle extends StatelessWidget {
     final YYMDay =
         formatDate(TimeNow, [yyyy, ' ', M, ' ', d]); // DateTime.now();'
     final HourMinuSec = formatDate(TimeNow, [HH, ':', nn, ':', ss]);
+
+    final article = Article();
+    var articleAmount = 0;
+/* 
+    try {
+      // id暂时为 1
+
+    } on Exception catch (e) {
+
+    } */
+
+    // 存储文章时间
+    article.articleYYMTime = YYMDay;
+    article.articleHourMinuSecTime = HourMinuSec;
+    // 获取当前文章总数
+    article.getArticleAmount();
+    articleAmount = article.articleAmount;
+
 /*
     Future<File> _getLocalFile() async {
       // get the path to the document directory.
@@ -457,13 +599,36 @@ class AddArticle extends StatelessWidget {
           ),
         ],
       ),
-      body: Row(
+      body: Column(
         children: <Widget>[
-          Container(
+          Center(
             child: TextField(
-              decoration: null,
-              onChanged: null,
+              controller: _controller,
+              scrollPadding: const EdgeInsets.all(12),
+              decoration: InputDecoration(
+                hintText: "type something here",
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (String value) {
+                // 新增文章
+                article.addArticleAmount();
+                // 设置当前文章id
+                article.articleId = articleAmount;
+                // 保存文章
+                article.setArticle(article.articleId.toString(), value);
+              },
             ),
+          ),
+          Center(
+            child: Text("Your most recent written article: " +
+                article.getArticle(articleAmount.toString()).toString()),
+          ),
+          Center(
+            child: Text("articleId is : " + article.articleId.toString()),
+          ),
+          Center(
+            child:
+                Text("articleAmount is : " + article.articleAmount.toString()),
           ),
         ],
       ),
