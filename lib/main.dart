@@ -3,10 +3,12 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:date_format/date_format.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'ViewArticle.dart';
+import 'AddArticle.dart';
+import 'Editor.dart';
 
 final themeColor = Colors.blueGrey;
 final brightnessColor = Brightness.dark;
@@ -35,6 +37,7 @@ class MyApp extends StatelessWidget {
         "pathdemo": (context) => PathDemo(),
         "add_art": (context) => AddArticle(),
         "add_article": (context) => AddArticle(),
+        "view_art": (context) => FullPageEditorScreen(),
       },
       //home: MyHomePage(title: 'Jan. 16'),
     );
@@ -281,13 +284,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Card(
                   child: InkWell(
                     splashColor: Colors.blue.withAlpha(30),
-                    onTap: () {
-                      () => Navigator.pushNamed(context, "add_art");
-                    },
+                    onTap: () => Navigator.pushNamed(context, "view_art"),
                     child: Container(
                       width: 300,
                       height: 100,
-                      child: Text('A card that can be tapped'),
+                      child: Text("data"),
                     ),
                   ),
                 ),
@@ -401,236 +402,6 @@ class _PathDemoState extends State<PathDemo> {
         onPressed: _incrementCounter,
         tooltip: 'Increment',
         child: new Icon(Icons.add),
-      ),
-    );
-  }
-}
-
-class Article {
-  var articleYYMTime = "";
-  var articleHourMinuSecTime = "";
-  // 仅用于读取或保存当前文章id， 不担当文章个数储存
-  var articleId = 0;
-  var articleAmount = 0;
-  // 读取出的文章保存在此
-  var article = "";
-
-  /// 传入 文章id，获取文章创建时间（精确到年月日）
-  getArticleYYMTime(String id) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    articleYYMTime = prefs.getString(id + 'createYYMTime');
-  }
-
-  /// 设置文章id+createYYMTime为key, value 为创建时间（精确到年月日）
-  setArticleYYMTime(String id, String YYMTime) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(id + 'createYYMTime', YYMTime);
-  }
-
-  /// 传入 文章id，获取文章创建时间(精确到小时)
-  getArticleHourMinuSecTime(String id) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    articleHourMinuSecTime = prefs.getString(id + 'createHourMinuSecTime');
-  }
-
-  /// 设置文章id+createHourMinuSecTime为key, value 为创建时间(精确到小时)
-  setArticleHourMinuSecTime(String id, String hourMinuSecTime) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(id + 'createHourMinuSecTime', hourMinuSecTime);
-  }
-
-  /// 传入 文章id，获取文章内容
-  getArticle(String id) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    try {
-      article = prefs.getString(id);
-    } on Exception catch (e) {
-      article = "No article found.";
-    }
-  }
-
-  /// 设置文章id为key, value 为文章内容
-  setArticle(String id, String article) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(id, article);
-  }
-
-  /// 删除指定文章 // 暂不可用
-  deleteArticle(String id) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    // 将setString() 第二参设为null 则会删除指定key 的值
-    await prefs.setString(id, null);
-  }
-
-  /// 设置已有文章数量: 新增一篇文章 注意应在getArticleAmount() 之后调用
-  addArticleAmount() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    int articleCount = prefs.getInt('articleAmount');
-    articleAmount = ++articleCount;
-    prefs.setInt('articleAmount', articleAmount);
-  }
-
-  /// 获取文章已有数量, 如无文章数量则先初始化
-  getArticleAmount() async {
-    int articleCount = null;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    try {
-      articleCount = prefs.getInt('articleAmount');
-    } on Exception catch (e) {
-      // 如果没有设置过文章数量则初始化为 0
-      await prefs.setInt('articleAmount', 0);
-      articleCount = prefs.getInt('articleAmount');
-    }
-    articleAmount = articleCount;
-  }
-}
-
-class AddArticle extends StatefulWidget {
-  AddArticle({Key key}) : super(key: key);
-
-  @override
-  _AddArticleState createState() => _AddArticleState();
-}
-
-class _AddArticleState extends State<AddArticle> {
-  TextEditingController _controller;
-
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-  }
-
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO 将时间存在临时文件中，以防止程序恢复草稿时搞错时间
-    final TimeNow = DateTime.now();
-    final YYMDay =
-        formatDate(TimeNow, [yyyy, ' ', M, ' ', d]); // DateTime.now();'
-    final HourMinuSec = formatDate(TimeNow, [HH, ':', nn, ':', ss]);
-
-    final article = Article();
-    var articleAmount = 0;
-/* 
-    try {
-      // id暂时为 1
-
-    } on Exception catch (e) {
-
-    } */
-
-    // 存储文章时间
-    article.articleYYMTime = YYMDay;
-    article.articleHourMinuSecTime = HourMinuSec;
-    // 获取当前文章总数
-    article.getArticleAmount();
-    articleAmount = article.articleAmount;
-
-/*
-    Future<File> _getLocalFile() async {
-      // get the path to the document directory.
-      String dir = (await getApplicationDocumentsDirectory()).path;
-      return new File('$dir/data/diary/' + TimeNow.toString() + '.txt');
-    }
-*/
-/*
-    String texts;
-
-    Future<void> processallfile() async {
-      ProcessResult results = await Process.run('ls', ['-l']);
-      texts = results.stdout.toString();
-      print(results.stdout);
-    }
-*/
-    return new Scaffold(
-      appBar: AppBar(
-        leading: Icon(Icons.close),
-        title: Text(YYMDay.split(" ")[1] +
-            " " +
-            YYMDay.split(" ")[2] +
-            "/" +
-            HourMinuSec.split(":")[0] +
-            ":" +
-            HourMinuSec.split(":")[1]),
-        actions: <Widget>[
-          IconButton(
-              tooltip: "Choose category",
-              icon: Icon(Icons.bookmark),
-              onPressed: () {}),
-          // 导航栏右侧菜单
-          Row(
-            children: <Widget>[
-              PopupMenuButton<String>(
-                tooltip: "More options",
-                icon: Icon(Icons.more_vert),
-                onSelected: (String result) {},
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: "1",
-                    child: Text('Title'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: "2",
-                    child: Text('Markdown'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: "3",
-                    child: Text('Private diary'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: "4",
-                    child: Text('Diary template'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: "5",
-                    child: Text('Last'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: "6",
-                    child: Text('Give up editing'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: Column(
-        children: <Widget>[
-          Center(
-            child: TextField(
-              controller: _controller,
-              scrollPadding: const EdgeInsets.all(12),
-              decoration: InputDecoration(
-                hintText: "type something here",
-              ),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (String value) {
-                // 新增文章
-                article.addArticleAmount();
-                // 设置当前文章id
-                article.articleId = articleAmount;
-                // 保存文章
-                article.setArticle(article.articleId.toString(), value);
-              },
-            ),
-          ),
-          Center(
-            child: Text("Your most recent written article: " +
-                article.getArticle(articleAmount.toString()).toString()),
-          ),
-          Center(
-            child: Text("articleId is : " + article.articleId.toString()),
-          ),
-          Center(
-            child:
-                Text("articleAmount is : " + article.articleAmount.toString()),
-          ),
-        ],
       ),
     );
   }
