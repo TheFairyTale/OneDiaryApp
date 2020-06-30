@@ -5,11 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:quill_delta/quill_delta.dart';
 import 'package:zefyr/zefyr.dart';
 
+import './model/Diary.dart';
+import './Persistance/FileManager.dart';
+
+// https://learningflutter.net/flutter-markdown-editor/
 class ZefyrLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: <Widget>[
         Text('Editor'),
       ],
@@ -18,40 +22,64 @@ class ZefyrLogo extends StatelessWidget {
 }
 
 class FullPageEditorScreen extends StatefulWidget {
+  FullPageEditorScreen(this.diary, this.openOnEditing);
+  final Diary diary;
+  final bool openOnEditing;
+
   @override
   _FullPageEditorScreenState createState() => new _FullPageEditorScreenState();
 }
 
-final doc =
-    r'[{"insert":"Zefyr"},{"insert":"\n","attributes":{"heading":1}},{"insert":"Soft and gentle rich text editing for Flutter applications.","attributes":{"i":true}},{"insert":"\n"},{"insert":"​","attributes":{"embed":{"type":"image","source":"asset://assets/images/1026_card_after_training.png"}}},{"insert":"\n"},{"insert":"Photo by Hiroyuki Takeda.","attributes":{"i":true}},{"insert":"\nZefyr is currently in "},{"insert":"early preview","attributes":{"b":true}},{"insert":". If you have a feature request or found a bug, please file it at the "},{"insert":"issue tracker","attributes":{"a":"https://github.com/memspace/zefyr/issues"}},{"insert":'
-    r'".\nDocumentation"},{"insert":"\n","attributes":{"heading":3}},{"insert":"Quick Start","attributes":{"a":"https://github.com/memspace/zefyr/blob/master/doc/quick_start.md"}},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"Data Format and Document Model","attributes":{"a":"https://github.com/memspace/zefyr/blob/master/doc/data_and_document.md"}},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"Style Attributes","attributes":{"a":"https://github.com/memspace/zefyr/blob/master/doc/attr'
-    r'ibutes.md"}},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"Heuristic Rules","attributes":{"a":"https://github.com/memspace/zefyr/blob/master/doc/heuristics.md"}},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"FAQ","attributes":{"a":"https://github.com/memspace/zefyr/blob/master/doc/faq.md"}},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"Clean and modern look"},{"insert":"\n","attributes":{"heading":2}},{"insert":"Zefyr’s rich text editor is built with simplicity and fle'
-    r'xibility in mind. It provides clean interface for distraction-free editing. Think Medium.com-like experience.\nMarkdown inspired semantics"},{"insert":"\n","attributes":{"heading":2}},{"insert":"Ever needed to have a heading line inside of a quote block, like this:\nI’m a Markdown heading"},{"insert":"\n","attributes":{"block":"quote","heading":3}},{"insert":"And I’m a regular paragraph"},{"insert":"\n","attributes":{"block":"quote"}},{"insert":"Code blocks"},{"insert":"\n","attributes":{"headin'
-    r'g":2}},{"insert":"Of course:\nimport ‘package:flutter/material.dart’;"},{"insert":"\n","attributes":{"block":"code"}},{"insert":"import ‘package:zefyr/zefyr.dart’;"},{"insert":"\n\n","attributes":{"block":"code"}},{"insert":"void main() {"},{"insert":"\n","attributes":{"block":"code"}},{"insert":" runApp(MyWAD());"},{"insert":"\n","attributes":{"block":"code"}},{"insert":"}"},{"insert":"\n","attributes":{"block":"code"}},{"insert":"\n\n\n"}]';
-
-Delta getDelta() {
-  return Delta.fromJson(json.decode(doc) as List);
-}
-
 class _FullPageEditorScreenState extends State<FullPageEditorScreen> {
-  final ZefyrController _controller =
-      ZefyrController(NotusDocument.fromDelta(getDelta()));
+  ZefyrController _controller;
   final FocusNode _focusNode = new FocusNode();
   bool _editing = false;
   StreamSubscription<NotusChange> _sub;
+  TextEditingController _titleController;
+  final FileManager fm = new FileManager();
 
   @override
   void initState() {
     super.initState();
+    _controller = ZefyrController(NotusDocument.fromDelta(
+        Delta.fromJson(json.decode(widget.diary.text) as List)));
     _sub = _controller.document.changes.listen((change) {
       print('${change.source}: ${change.change}');
     });
+    _titleController = new TextEditingController(text: widget.diary.title);
+    _titleController.addListener(_editTitle);
+
+    if (widget.openOnEditing) {
+      _startEditing();
+    }
   }
 
   @override
   void dispose() {
+    _titleController.dispose();
     _sub.cancel();
     super.dispose();
+  }
+
+  void _editTitle() {
+    var text = _titleController.text;
+    if (text.isEmpty) {
+      setState(() {
+        widget.diary.changeDiaryTitle('Untitled');
+      });
+    } else {
+      setState(() {
+        widget.diary.changeDiaryTitle(text);
+      });
+    }
+  }
+
+  void _deleteDiary() {
+    fm.deleteDiary(widget.diary).then((res) {
+      print('deleted');
+      print(res);
+      Navigator.of(context).pop();
+    }).catchError(print);
   }
 
   @override
@@ -66,15 +94,58 @@ class _FullPageEditorScreenState extends State<FullPageEditorScreen> {
     );
 
     final done = _editing
-        ? [new FlatButton(onPressed: _stopEditing, child: Text('DONE'))]
-        : [new FlatButton(onPressed: _startEditing, child: Text('EDIT'))];
+        ? [
+            new FlatButton(
+                onPressed: _deleteDiary,
+                child: Text(
+                  'DELETE',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white),
+                )),
+            new FlatButton(
+                onPressed: _stopEditing,
+                child: Text(
+                  'DONE',
+                  style: TextStyle(color: Colors.white),
+                ))
+          ]
+        : [
+            new FlatButton(
+                onPressed: _startEditing,
+                child: Text(
+                  'EDIT',
+                  style: TextStyle(color: Colors.white),
+                ))
+          ];
     return Scaffold(
       resizeToAvoidBottomPadding: true,
       appBar: AppBar(
         elevation: 1.0,
-        backgroundColor: Colors.grey.shade200,
-        brightness: Brightness.light,
-        title: ZefyrLogo(),
+        title: TextField(
+          controller: _titleController,
+          autofocus: false,
+          enabled: _editing,
+          textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.words,
+          cursorColor: Colors.white,
+          style: new TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelStyle: TextStyle(color: Colors.white),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            disabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            border: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            fillColor: Colors.white,
+          ),
+        ),
         actions: done,
       ),
       body: ZefyrScaffold(
@@ -99,6 +170,13 @@ class _FullPageEditorScreenState extends State<FullPageEditorScreen> {
   }
 
   void _stopEditing() {
+    final jsonValue = jsonEncode(_controller.document.toJson());
+    var diaryCopy = widget.diary;
+    diaryCopy.text = jsonValue;
+    fm.writeDiary(diaryCopy).then((res) {
+      print('ok');
+      print(res);
+    });
     setState(() {
       _editing = false;
     });

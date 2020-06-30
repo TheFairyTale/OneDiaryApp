@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:OneDiaryApp/view/ListDiary.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'ViewArticle.dart';
 import 'AddArticle.dart';
 import 'Editor.dart';
+import 'RouteObserver.dart';
 
 final themeColor = Colors.blueGrey;
 final brightnessColor = Brightness.dark;
@@ -20,7 +22,7 @@ void main() => runApp(MyApp());
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return new MaterialApp(
       // todo what title
       title: 'OneDiaryApp',
       theme: ThemeData(
@@ -32,14 +34,16 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: "/",
       routes: {
-        "/": (context) => MyHomePage(),
+        "/": (context) => DiaryListPage(),
+        //"/": (context) => MyHomePage(),
         "category": (context) => Categories(),
         "pathdemo": (context) => PathDemo(),
         "add_art": (context) => AddArticle(),
         "add_article": (context) => AddArticle(),
-        "view_art": (context) => FullPageEditorScreen(),
+        "view_art": (context) => ViewArticle(),
       },
       //home: MyHomePage(title: 'Jan. 16'),
+      navigatorObservers: <NavigatorObserver>[routeObserver],
     );
   }
 }
